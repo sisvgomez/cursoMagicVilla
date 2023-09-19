@@ -24,23 +24,26 @@ namespace MagicVilla_API.Controllers
 
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]      
-        public ActionResult<IEnumerable<VillaDto>> GetVillas()  //ActionResult se agrego para el tipo de retorno
+        public async Task<ActionResult<IEnumerable<VillaDto>>> GetVillas()  //ActionResult se agrego para el tipo de retorno
         {
-            return Ok(_db.Villas.ToList());  // es un select a la bd
+            //return Ok(_db.Villas.ToList());  // es un select a la bd // es correcto pero se modifico por el async de abajo
 
-        }
+            return Ok(await _db.Villas.ToListAsync()); // se modifico el public usarlo siempre que consumas un recurso externo a tu código (un fichero, una base de datos, un servicio online...).
+        } 
+
+
         [HttpGet("id:int", Name = "GetVilla")]  // se agrego el name para usarlo en el post
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public ActionResult<VillaDto> GetVilla(int id)
+        public async Task<ActionResult<VillaDto>> GetVilla(int id)
         {
             if (id == 0)
             {
                 return BadRequest();
             }
             //var villa = VillaStore.villaList.FirstOrDefault(v => v.Id == id);
-            var villa = _db.Villas.FirstOrDefault(v => v.Id == id);
+            var villa = await _db.Villas.FirstOrDefaultAsync(v => v.Id == id);  // se agrego el async
             if (villa == null)
             {
                 return NotFound();
@@ -52,7 +55,7 @@ namespace MagicVilla_API.Controllers
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public ActionResult<VillaDto> CrearVilla([FromBody] VillaDto villaDto)
+        public async Task<ActionResult<VillaDto>> CrearVilla([FromBody] VillaCreateDto villaDto)
         {
             if (!ModelState.IsValid) //Vaidando el modelo
             {
@@ -62,17 +65,14 @@ namespace MagicVilla_API.Controllers
             {
                 return BadRequest(villaDto);
             }
-            if (_db.Villas.FirstOrDefault(v => v.Nombre.ToLower() == villaDto.Nombre.ToLower()) != null) //Valdacion personalizada
+            if (await _db.Villas.FirstOrDefaultAsync(v => v.Nombre.ToLower() == villaDto.Nombre.ToLower()) != null) //Valdacion personalizada // se agrego el async
             {
                 ModelState.AddModelError("NombreExiste", "La villa con ese nombre ya existe");
                 return BadRequest(ModelState);
             }
 
 
-            if (villaDto.Id > 0)
-            {
-                return StatusCode(StatusCodes.Status500InternalServerError);
-            }
+           
            // villaDto.Id = VillaStore.villaList.OrderByDescending(v => v.Id).First().Id + 1;
             //VillaStore.villaList.Add(villaDto);
             //return Ok(villaDto); //****** este es valido pero lo cmabiaremos para traer toda la lista de la API
@@ -90,10 +90,10 @@ namespace MagicVilla_API.Controllers
              
              };
 
-            _db.Add(modelo);  // es un insert a la bd
-            _db.SaveChanges();
+            await _db.AddAsync(modelo);  // es un insert a la bd // se agrego el async
+            await _db.SaveChangesAsync();
             
-            return CreatedAtRoute("GetVilla", new { id = villaDto.Id }, villaDto);
+            return CreatedAtRoute("GetVilla", new { id = modelo.Id }, modelo);
         }
 
         [HttpDelete("id:int")]
@@ -101,20 +101,20 @@ namespace MagicVilla_API.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
 
-        public IActionResult DeleteVilla(int id)
+        public async Task<IActionResult> DeleteVilla(int id)
         {
             if (id == 0)
             {
                 return BadRequest();
             }
-            var villa = _db.Villas.FirstOrDefault(v => v.Id == id);
+            var villa = await _db.Villas.FirstOrDefaultAsync(v => v.Id == id); // se agrego el async
             if (villa == null)
             {
                 return NotFound();
             }
            // VillaStore.villaList.Remove(villa);
-           _db.Remove(villa);
-            _db.SaveChanges();
+           _db.Remove(villa);  // NO EXISTE  el async
+           await _db.SaveChangesAsync(); // se agrego el async
             return NoContent();
         }
 
@@ -122,7 +122,7 @@ namespace MagicVilla_API.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
 
-        public IActionResult UpdateVilla( int id,[FromBody] VillaDto villaDto )
+        public async Task<IActionResult> UpdateVilla( int id,[FromBody] VillaUpdateDto villaDto )
         {
             if (villaDto==null || id!=villaDto.Id  )
             {
@@ -146,7 +146,7 @@ namespace MagicVilla_API.Controllers
 
             };
             _db.Villas.Update(modelo);
-            _db.SaveChanges();
+            await _db.SaveChangesAsync();
             return NoContent();
 
         }
@@ -156,14 +156,14 @@ namespace MagicVilla_API.Controllers
         [ProducesResponseType(StatusCodes.Status204NoContent)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
 
-        public IActionResult UpdatePartialVilla(int id, JsonPatchDocument<VillaDto> PatchDto) // se agrega esto por las librerias nugget jsonpathc
+        public async Task<IActionResult> UpdatePartialVilla(int id, JsonPatchDocument<VillaUpdateDto> PatchDto) // se agrega esto por las librerias nugget jsonpathc
         {
             if (PatchDto == null || id == 0)
             {
                 return BadRequest();
             }
-            var villa = _db.Villas.AsNoTracking().FirstOrDefault(v => v.Id == id); // Asnotracking es para consultar y no se trackea con Villa y villaDto, cuando trabajamos con un registro que despus volvemos a instanciar
-            VillaDto villaDto = new ()
+            var villa = await _db.Villas.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id); // Asnotracking es para consultar y no se trackea con Villa y villaDto, cuando trabajamos con un registro que despus volvemos a instanciar
+            VillaUpdateDto villaDto = new ()
             {
                 Id = villa.Id,
                 Nombre = villa.Nombre,
@@ -197,7 +197,7 @@ namespace MagicVilla_API.Controllers
 
             };
             _db.Villas.Update(modelo);
-            _db.SaveChanges();
+            await _db.SaveChangesAsync();
 
             return NoContent();
 

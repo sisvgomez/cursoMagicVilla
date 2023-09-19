@@ -1,3 +1,4 @@
+using MagicVilla_API;
 using MagicVilla_API.Datos;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,6 +17,8 @@ builder.Services.AddDbContext<AplicationDbcontext>(option =>
     option.UseSqlServer(builder.Configuration.GetConnectionString("DevConnection"));
 
 });
+
+builder.Services.AddAutoMapper(typeof(MappingConfig)); // se agrego para el tema de  convertir modelo a objetos
 
 var app = builder.Build();
 
